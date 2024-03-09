@@ -1,0 +1,72 @@
+# This is a Docker Compose file for the go-actor-concurrency project.
+# It defines the services, networks, and volumes for the application.
+# The version of the Docker Compose file format is 3.8.
+
+version: "3.8"
+
+# The name of the project is go-actor-concurrency.
+name: go-actor-concurrency
+
+# The services section defines the services that make up the application.
+services:
+  # The redis service uses the redis:alpine image.
+  redis:
+    # The image to use for the Redis service.
+    image: redis:alpine
+    # The pull policy for the image. If the image is not present locally, Docker will pull it.
+    pull_policy: missing
+    # The volumes for the Redis service. The redis-data volume is mounted to /data in the container.
+    volumes:
+      - redis-data:/data
+    # The ports for the Redis service. Port 6379 in the container is mapped to port 6379 on the host.
+    ports:
+      - "6379:6379"
+    # The networks that the Redis service is connected to.
+    networks:
+      - go-actor-concurrency
+
+  # The otel-collector service is defined here.
+  otel-collector:
+    # The Docker image to use for the otel-collector service.
+    image: otel/opentelemetry-collector-contrib
+    # The pull policy for the Docker image. If the image is not present locally, Docker will pull it.
+    pull_policy: missing
+    # The volumes for the otel-collector service. The otel-collector-config volume is mounted to /etc/otel in the container.
+    volumes:
+      - otel-collector-config:/etc/otel
+    # The ports for the otel-collector service. Port 4317 in the container is mapped to port 4317 on the host.
+    ports:
+      - "4317:4317"
+    # The networks that the otel-collector service is connected to.
+    networks:
+      - go-actor-concurrency
+
+  # The zipkin service is defined here.
+  zipkin:
+    # The Docker image to use for the zipkin service.
+    image: openzipkin/zipkin
+    # The pull policy for the Docker image. If the image is not present locally, Docker will pull it.
+    pull_policy: missing
+    # The services that the zipkin service depends on. In this case, it depends on the otel-collector service.
+    depends_on: [ otel-collector ]
+    # The environment variables for the zipkin service. JAVA_OPTS is set to -Xmx1g (1 GB of memory).
+    # This is as a result of the large volume of logs from the otel-collector service.
+    environment:
+      JAVA_OPTS: -Xmx1g
+    # The ports for the zipkin service. Port 9411 in the container is mapped to port 9411 on the host.
+    ports:
+      - "9411:9411"
+    # The networks that the zipkin service is connected to.
+    networks:
+      - go-actor-concurrency
+
+# The volumes section defines the volumes used by the services.
+volumes:
+  # The redis-data volume is used by the Redis service.
+  redis-data:
+  otel-collector-config:
+
+# The networks section defines the networks used by the services.
+networks:
+  # The go-actor-concurrency network is used by the Redis service.
+  go-actor-concurrency:
