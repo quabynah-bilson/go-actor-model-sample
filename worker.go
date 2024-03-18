@@ -20,14 +20,6 @@ import (
 	"time"
 )
 
-// Actor pool sizes
-const (
-	transactionActorPoolSize = 100
-	statusCheckActorPoolSize = 100
-
-	numTransactions = 100_000 // process 100K transactions
-)
-
 type TransactionWorkerService struct {
 	transactionProcessor models.ITransactionProcessor
 	statusCheckProcessor models.IStatusCheckProcessor
@@ -40,16 +32,16 @@ func NewTransactionWorkerService(transactionProcessor models.ITransactionProcess
 	}
 }
 
-// StartWorkerService is a function triggers a cron job to process transactions every 5 minutes.
+// StartWorkerService is a function triggers a cron job to process transactions every minute.
 func (tws *TransactionWorkerService) StartWorkerService(ctx context.Context) func() {
 	kron := cron.New()
 
-	if _, err := kron.AddFunc("@every 5m", tws.processTransactions); err != nil {
+	if _, err := kron.AddFunc("@every 1m", tws.processTransactions); err != nil {
 		log.Fatalf("Failed to start cron job: %v", err)
 	}
 
 	// initialize the tracer
-	tp := tws.initTracer()
+	//tp := tws.initTracer()
 
 	// start initial processing
 	go tws.processTransactions()
@@ -59,25 +51,24 @@ func (tws *TransactionWorkerService) StartWorkerService(ctx context.Context) fun
 
 	// Ensure all the spans are flushed before the application exits
 	return func() {
+		log.Println("stopping worker service...")
 		<-ctx.Done()
 		kron.Stop()
-		if err := tp.Shutdown(ctx); err != nil {
-			log.Fatalf("failed to shutdown TracerProvider: %v", err)
-		}
+		//if err := tp.Shutdown(ctx); err != nil {
+		//	log.Fatalf("failed to shutdown TracerProvider: %v", err)
+		//}
 	}
 }
 
 // processTransactions is a method that simulates processing of transactions using actors.
 func (tws *TransactionWorkerService) processTransactions() {
 	// create the actor system
-	system := actor.NewActorSystem(
-	//actor.WithMetricProviders(),
-	)
+	system := actor.NewActorSystem()
 	defer system.Shutdown()
 
 	// create pools of Transaction and StatusCheck Actors
-	transactionActorPIDs := make([]*actor.PID, transactionActorPoolSize)
-	statusCheckActorPIDs := make([]*actor.PID, statusCheckActorPoolSize)
+	transactionActorPIDs = make([]*actor.PID, transactionActorPoolSize)
+	statusCheckActorPIDs = make([]*actor.PID, statusCheckActorPoolSize)
 
 	// initialize the actor pools
 	for i := 0; i < transactionActorPoolSize; i++ {
@@ -94,27 +85,23 @@ func (tws *TransactionWorkerService) processTransactions() {
 	}
 
 	var wg sync.WaitGroup
+	wg.Add(numTransactions)
 	// simulate processing of transactions
 	for i := 0; i < numTransactions; i++ {
-		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
 			// create a new transaction
 			rand.New(rand.NewSource(time.Now().UnixNano()))
 			amount := rand.Float64() * 100
 			transaction := data.NewTransaction(amount)
-			system.Root.Send(transactionActorPIDs[i%transactionActorPoolSize], transaction)
-
-			// create a new status check
-			system.Root.Send(statusCheckActorPIDs[i%statusCheckActorPoolSize], transaction.ID)
+			tws.transactionProcessor.SetStatusCheckActorPID(statusCheckActorPIDs[i%statusCheckActorPoolSize])
+			system.Root.Request(transactionActorPIDs[i%transactionActorPoolSize], transaction)
 		}(i)
 	}
 
+	// wait for all transactions to be processed
 	wg.Wait()
-
-	// get all the transaction results
-	total, processed, failed := tws.statusCheckProcessor.GetResults()
-	log.Printf("Total transactions: %d, Processed: %d, Failed: %d\n", total, processed, failed)
+	log.Printf("processed %d transactions\n", numTransactions)
 }
 
 func (*TransactionWorkerService) initTracer() *sdktrace.TracerProvider {
@@ -131,7 +118,7 @@ func (*TransactionWorkerService) initTracer() *sdktrace.TracerProvider {
 		ctx,
 		otlptracegrpc.NewClient(
 			otlptracegrpc.WithEndpoint("localhost:4317"),
-			otlptracegrpc.WithInsecure(), // Use WithTLSCredentials if your collector is setup with TLS
+			otlptracegrpc.WithInsecure(), // Use WithTLSCredentials if your collector is set up with TLS
 		),
 	)
 	if err != nil {

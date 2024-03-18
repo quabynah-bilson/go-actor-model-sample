@@ -3,6 +3,7 @@ package configs
 import (
 	"context"
 	"github.com/go-redis/redis/v8"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"log"
 )
 
@@ -38,4 +39,10 @@ func NewRedisClient(ctx context.Context) *redis.Client {
 	// Return the Redis client instance.
 	log.Println("Redis client connected successfully.")
 	return client
+}
+
+func NewCockroachClient(ctx context.Context) *pgxpool.Pool {
+	// Create a new CockroachDB connection pool with the specified options.
+
+	return nil
 }

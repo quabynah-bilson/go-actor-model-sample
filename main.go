@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"go-actor-model/configs"
+	"go-actor-model/configs/storage"
 	"go-actor-model/models"
 )
 
@@ -18,11 +19,11 @@ func main() {
 
 	// create storage instance
 	rdc := configs.NewRedisClient(ctx)
-	storage := configs.NewCacheStorage(ctx, rdc)
+	cacheStorage := storage.NewCacheStorage(ctx, rdc)
 
 	// create processors
-	transactionProcessor := models.NewTransactionProcessor(storage)
-	statusCheckProcessor := models.NewStatusCheckProcessor(storage)
+	transactionProcessor := models.NewTransactionProcessor(cacheStorage)
+	statusCheckProcessor := models.NewStatusCheckProcessor(cacheStorage)
 
 	// create worker service
 	tws := NewTransactionWorkerService(transactionProcessor, statusCheckProcessor)

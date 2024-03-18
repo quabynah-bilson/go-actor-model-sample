@@ -60,11 +60,23 @@ services:
     networks:
       - go-actor-concurrency
 
+#  cockroachdb:
+#    image: cockroachdb/cockroach:latest
+#    pull_policy: missing
+#    command: start --insecure
+#    ports:
+#      - "26257:26257"
+#    networks:
+#      - go-actor-concurrency
+#    volumes:
+#      - cockroach-data:/cockroach/cockroach-data
+
 # The volumes section defines the volumes used by the services.
 volumes:
   # The redis-data volume is used by the Redis service.
   redis-data:
   otel-collector-config:
+#  cockroach-data:
 
 # The networks section defines the networks used by the services.
 networks:
